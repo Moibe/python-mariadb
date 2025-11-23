@@ -7,7 +7,7 @@ from models import (
     GenericResponse, ListResponse
 )
 from typing import List
-import mariadb
+from mysql.connector import Error
 
 # Crear la aplicación FastAPI
 app = FastAPI(
@@ -72,7 +72,7 @@ async def get_paises(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le
         total = cursor.fetchone()[0]
         
         # Obtener países con paginación
-        query = "SELECT id, nombre, moneda, moneda_tic, simbolo FROM pais LIMIT ? OFFSET ?"
+        query = "SELECT id, nombre, moneda, moneda_tic, simbolo FROM pais LIMIT %s OFFSET %s"
         cursor.execute(query, (limit, skip))
         
         paises = []

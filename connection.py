@@ -1,4 +1,5 @@
-import mariadb
+import mysql.connector
+from mysql.connector import Error
 import os
 from dotenv import load_dotenv
 import socket
@@ -23,7 +24,7 @@ def get_connection():
         print(f"  Base de datos: {database}")
         print()
         
-        connection = mariadb.connect(
+        connection = mysql.connector.connect(
             host=host,
             user=user,
             password=password,
@@ -32,8 +33,8 @@ def get_connection():
             autocommit=True
         )
         return connection
-    except mariadb.Error as e:
-        print(f"Error MariaDB (código {e.errno}): {e}")
+    except Error as e:
+        print(f"Error de conexión (código {e.errno}): {e.msg}")
         return None
     except Exception as e:
         print(f"Error general: {type(e).__name__}: {e}")
