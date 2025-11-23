@@ -16,14 +16,28 @@ class Conjunto(ConjuntoBase):
     class Config:
         from_attributes = True
 
+# ============ MODELOS TIPO_PRODUCTO ============
+class TipoProductoBase(BaseModel):
+    nombre: str
+    unidad_base: str
+
+class TipoProductoCreate(TipoProductoBase):
+    pass
+
+class TipoProducto(TipoProductoBase):
+    id: int
+    
+    class Config:
+        from_attributes = True
+
 # ============ MODELOS PAIS ============
 class PaisBase(BaseModel):
     nombre: str
-    unidad: str
-    unidades: str
     moneda: str
     moneda_tic: str
     simbolo: str
+    side: bool
+    decs: int
 
 class PaisCreate(PaisBase):
     pass
@@ -38,7 +52,8 @@ class Pais(PaisBase):
 class ProductoBase(BaseModel):
     nombre: str
     cantidad: int
-    unidad_general: str
+    id_tipo_producto: int
+    id_conjunto: int
     precio_base: str
 
 class ProductoCreate(ProductoBase):
@@ -50,21 +65,35 @@ class Producto(ProductoBase):
     class Config:
         from_attributes = True
 
-# ============ MODELOS LINEA ============
-class LineaBase(BaseModel):
+class ProductoDetallado(BaseModel):
+    id: int
+    nombre: str
+    cantidad: int
+    precio_base: str
+    id_tipo_producto: int
+    id_conjunto: int
+    tipo_producto_nombre: str
+    tipo_producto_unidad_base: str
+    conjunto_nombre: str
+    
+    class Config:
+        from_attributes = True
+
+# ============ MODELOS PERTENENCIA ============
+class PertenenciaBase(BaseModel):
     id_conjunto: int
     id_producto: int
 
-class LineaCreate(LineaBase):
+class PertenenciaCreate(PertenenciaBase):
     pass
 
-class Linea(LineaBase):
+class Pertenencia(PertenenciaBase):
     id: int
     
     class Config:
         from_attributes = True
 
-class LineaDetallada(BaseModel):
+class PertenenciaDetallada(BaseModel):
     id: int
     id_conjunto: int
     id_producto: int
@@ -72,6 +101,35 @@ class LineaDetallada(BaseModel):
     conjunto_sitio: str
     producto_nombre: str
     producto_cantidad: int
+    tipo_producto_nombre: str
+    
+    class Config:
+        from_attributes = True
+
+# ============ MODELOS TEXTOS ============
+class TextosBase(BaseModel):
+    id_tipo_producto: int
+    id_pais: int
+    unidad: str
+    unidades: str
+
+class TextosCreate(TextosBase):
+    pass
+
+class Textos(TextosBase):
+    id: int
+    
+    class Config:
+        from_attributes = True
+
+class TextosDetallado(BaseModel):
+    id: int
+    id_tipo_producto: int
+    id_pais: int
+    unidad: str
+    unidades: str
+    tipo_producto_nombre: str
+    pais_nombre: str
     
     class Config:
         from_attributes = True
@@ -79,7 +137,7 @@ class LineaDetallada(BaseModel):
 # ============ MODELOS PRECIO ============
 class PrecioBase(BaseModel):
     nombre: str
-    id_linea: int
+    id_pertenencia: int
     id_pais: int
     price_id: str
     cantidad_precio: int
@@ -98,19 +156,22 @@ class Precio(PrecioBase):
 class PrecioDetallado(BaseModel):
     id: int
     nombre: str
-    id_linea: int
+    id_pertenencia: int
     id_pais: int
     price_id: str
     cantidad_precio: int
     ratio_imagen: int
     status: str
-    linea_id: int
+    pertenencia_id: int
     producto_nombre: str
     producto_cantidad: int
+    tipo_producto_nombre: str
     conjunto_nombre: str
     pais_nombre: str
     pais_moneda: str
     pais_simbolo: str
+    pais_side: bool
+    pais_decs: int
     
     class Config:
         from_attributes = True
