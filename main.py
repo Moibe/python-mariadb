@@ -2,8 +2,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from connection import get_connection
 from models import (
-    Pais, PaisCreate, Producto, ProductoCreate, 
-    Precio, PrecioCreate, PrecioDetallado,
+    Conjunto, ConjuntoCreate, Pais, PaisCreate, Producto, ProductoCreate, 
+    Linea, LineaCreate, LineaDetallada, Precio, PrecioCreate, PrecioDetallado,
     GenericResponse, ListResponse
 )
 from typing import List
@@ -33,8 +33,10 @@ async def root():
         "version": "1.0.0",
         "documentación": "/docs",
         "endpoints": {
+            "conjuntos": "/conjuntos",
             "paises": "/paises",
             "productos": "/productos",
+            "lineas": "/lineas",
             "precios": "/precios"
         }
     }
@@ -56,7 +58,84 @@ async def health_check():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ============ ENDPOINTS PAIS ============
+# ============ ENDPOINTS CONJUNTO ============
+
+@app.get("/conjuntos", response_model=ListResponse)
+async def get_conjuntos(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100)):
+    """Obtener lista de conjuntos con paginación"""
+    try:
+        conn = get_connection()
+        if not conn:
+            raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+        
+        cursor = conn.cursor()
+        
+        # Contar total de conjuntos
+        cursor.execute("SELECT COUNT(*) FROM conjunto")
+        total = cursor.fetchone()[0]
+        
+        # Obtener conjuntos con paginación
+        query = "SELECT id, sitio, nombre FROM conjunto LIMIT %s OFFSET %s"
+        cursor.execute(query, (limit, skip))
+        
+        conjuntos = []
+        for row in cursor.fetchall():
+            conjunto = {
+                "id": row[0],
+                "sitio": row[1],
+                "nombre": row[2]
+            }
+            conjuntos.append(conjunto)
+        
+        cursor.close()
+        conn.close()
+        
+        return ListResponse(
+            success=True,
+            message=f"Se obtuvieron {len(conjuntos)} conjuntos",
+            data=conjuntos,
+            total=total
+        )
+    
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+@app.get("/conjuntos/{conjunto_id}", response_model=GenericResponse)
+async def get_conjunto(conjunto_id: int):
+    """Obtener un conjunto específico por ID"""
+    try:
+        conn = get_connection()
+        if not conn:
+            raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+        
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, sitio, nombre FROM conjunto WHERE id = %s", (conjunto_id,))
+        
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Conjunto con ID {conjunto_id} no encontrado")
+        
+        conjunto = {
+            "id": row[0],
+            "sitio": row[1],
+            "nombre": row[2]
+        }
+        
+        return GenericResponse(
+            success=True,
+            message="Conjunto obtenido correctamente",
+            data=conjunto
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 @app.get("/paises", response_model=ListResponse)
 async def get_paises(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100)):
@@ -73,7 +152,7 @@ async def get_paises(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le
         total = cursor.fetchone()[0]
         
         # Obtener países con paginación
-        query = "SELECT id, nombre, moneda, moneda_tic, simbolo FROM pais LIMIT %s OFFSET %s"
+        query = "SELECT id, nombre, unidad, unidades, moneda, moneda_tic, simbolo FROM pais LIMIT %s OFFSET %s"
         cursor.execute(query, (limit, skip))
         
         paises = []
@@ -81,9 +160,11 @@ async def get_paises(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le
             pais = {
                 "id": row[0],
                 "nombre": row[1],
-                "moneda": row[2],
-                "moneda_tic": row[3],
-                "simbolo": row[4]
+                "unidad": row[2],
+                "unidades": row[3],
+                "moneda": row[4],
+                "moneda_tic": row[5],
+                "simbolo": row[6]
             }
             paises.append(pais)
         
@@ -97,7 +178,7 @@ async def get_paises(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le
             total=total
         )
     
-    except mariadb.Error as e:
+    except Error as e:
         raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
@@ -111,7 +192,7 @@ async def get_pais(pais_id: int):
             raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
         
         cursor = conn.cursor()
-        cursor.execute("SELECT id, nombre, moneda, moneda_tic, simbolo FROM pais WHERE id = ?", (pais_id,))
+        cursor.execute("SELECT id, nombre, unidad, unidades, moneda, moneda_tic, simbolo FROM pais WHERE id = %s", (pais_id,))
         
         row = cursor.fetchone()
         cursor.close()
@@ -123,9 +204,11 @@ async def get_pais(pais_id: int):
         pais = {
             "id": row[0],
             "nombre": row[1],
-            "moneda": row[2],
-            "moneda_tic": row[3],
-            "simbolo": row[4]
+            "unidad": row[2],
+            "unidades": row[3],
+            "moneda": row[4],
+            "moneda_tic": row[5],
+            "simbolo": row[6]
         }
         
         return GenericResponse(
@@ -156,7 +239,7 @@ async def get_productos(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1,
         total = cursor.fetchone()[0]
         
         # Obtener productos con paginación
-        query = "SELECT id, nombre, precio_mxn FROM producto LIMIT ? OFFSET ?"
+        query = "SELECT id, nombre, cantidad, unidad_general, precio_base FROM producto LIMIT %s OFFSET %s"
         cursor.execute(query, (limit, skip))
         
         productos = []
@@ -164,7 +247,9 @@ async def get_productos(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1,
             producto = {
                 "id": row[0],
                 "nombre": row[1],
-                "precio_mxn": row[2]
+                "cantidad": row[2],
+                "unidad_general": row[3],
+                "precio_base": row[4]
             }
             productos.append(producto)
         
@@ -178,7 +263,7 @@ async def get_productos(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1,
             total=total
         )
     
-    except mariadb.Error as e:
+    except Error as e:
         raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
@@ -192,7 +277,7 @@ async def get_producto(producto_id: int):
             raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
         
         cursor = conn.cursor()
-        cursor.execute("SELECT id, nombre, precio_mxn FROM producto WHERE id = ?", (producto_id,))
+        cursor.execute("SELECT id, nombre, cantidad, unidad_general, precio_base FROM producto WHERE id = %s", (producto_id,))
         
         row = cursor.fetchone()
         cursor.close()
@@ -204,7 +289,9 @@ async def get_producto(producto_id: int):
         producto = {
             "id": row[0],
             "nombre": row[1],
-            "precio_mxn": row[2]
+            "cantidad": row[2],
+            "unidad_general": row[3],
+            "precio_base": row[4]
         }
         
         return GenericResponse(
@@ -218,11 +305,173 @@ async def get_producto(producto_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
+# ============ ENDPOINTS LINEA ============
+
+@app.get("/lineas", response_model=ListResponse)
+async def get_lineas(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100)):
+    """Obtener lista de líneas con información detallada"""
+    try:
+        conn = get_connection()
+        if not conn:
+            raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+        
+        cursor = conn.cursor()
+        
+        # Contar total de líneas
+        cursor.execute("SELECT COUNT(*) FROM linea")
+        total = cursor.fetchone()[0]
+        
+        # Obtener líneas con información detallada
+        query = """
+            SELECT 
+                l.id, l.id_conjunto, l.id_producto,
+                c.nombre, c.sitio,
+                p.nombre, p.cantidad
+            FROM linea l
+            LEFT JOIN conjunto c ON l.id_conjunto = c.id
+            LEFT JOIN producto p ON l.id_producto = p.id
+            LIMIT %s OFFSET %s
+        """
+        cursor.execute(query, (limit, skip))
+        
+        lineas = []
+        for row in cursor.fetchall():
+            linea = {
+                "id": row[0],
+                "id_conjunto": row[1],
+                "id_producto": row[2],
+                "conjunto_nombre": row[3],
+                "conjunto_sitio": row[4],
+                "producto_nombre": row[5],
+                "producto_cantidad": row[6]
+            }
+            lineas.append(linea)
+        
+        cursor.close()
+        conn.close()
+        
+        return ListResponse(
+            success=True,
+            message=f"Se obtuvieron {len(lineas)} líneas",
+            data=lineas,
+            total=total
+        )
+    
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+@app.get("/lineas/{linea_id}", response_model=GenericResponse)
+async def get_linea(linea_id: int):
+    """Obtener una línea específica con información detallada"""
+    try:
+        conn = get_connection()
+        if not conn:
+            raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+        
+        cursor = conn.cursor()
+        query = """
+            SELECT 
+                l.id, l.id_conjunto, l.id_producto,
+                c.nombre, c.sitio,
+                p.nombre, p.cantidad
+            FROM linea l
+            LEFT JOIN conjunto c ON l.id_conjunto = c.id
+            LEFT JOIN producto p ON l.id_producto = p.id
+            WHERE l.id = %s
+        """
+        cursor.execute(query, (linea_id,))
+        
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Línea con ID {linea_id} no encontrada")
+        
+        linea = {
+            "id": row[0],
+            "id_conjunto": row[1],
+            "id_producto": row[2],
+            "conjunto_nombre": row[3],
+            "conjunto_sitio": row[4],
+            "producto_nombre": row[5],
+            "producto_cantidad": row[6]
+        }
+        
+        return GenericResponse(
+            success=True,
+            message="Línea obtenida correctamente",
+            data=linea
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+@app.get("/lineas/conjunto/{conjunto_id}", response_model=ListResponse)
+async def get_lineas_by_conjunto(conjunto_id: int, skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100)):
+    """Obtener todas las líneas de un conjunto específico"""
+    try:
+        conn = get_connection()
+        if not conn:
+            raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+        
+        cursor = conn.cursor()
+        
+        # Contar total de líneas
+        cursor.execute("SELECT COUNT(*) FROM linea WHERE id_conjunto = %s", (conjunto_id,))
+        total = cursor.fetchone()[0]
+        
+        # Obtener líneas
+        query = """
+            SELECT 
+                l.id, l.id_conjunto, l.id_producto,
+                c.nombre, c.sitio,
+                p.nombre, p.cantidad
+            FROM linea l
+            LEFT JOIN conjunto c ON l.id_conjunto = c.id
+            LEFT JOIN producto p ON l.id_producto = p.id
+            WHERE l.id_conjunto = %s
+            LIMIT %s OFFSET %s
+        """
+        cursor.execute(query, (conjunto_id, limit, skip))
+        
+        lineas = []
+        for row in cursor.fetchall():
+            linea = {
+                "id": row[0],
+                "id_conjunto": row[1],
+                "id_producto": row[2],
+                "conjunto_nombre": row[3],
+                "conjunto_sitio": row[4],
+                "producto_nombre": row[5],
+                "producto_cantidad": row[6]
+            }
+            lineas.append(linea)
+        
+        cursor.close()
+        conn.close()
+        
+        return ListResponse(
+            success=True,
+            message=f"Se obtuvieron {len(lineas)} líneas del conjunto ID {conjunto_id}",
+            data=lineas,
+            total=total
+        )
+    
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
 # ============ ENDPOINTS PRECIO ============
 
 @app.get("/precios", response_model=ListResponse)
 async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100)):
-    """Obtener lista de precios con paginación y información detallada"""
+    """Obtener lista de precios con información detallada"""
     try:
         conn = get_connection()
         if not conn:
@@ -234,15 +483,20 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
         cursor.execute("SELECT COUNT(*) FROM precio")
         total = cursor.fetchone()[0]
         
-        # Obtener precios con información de producto y país
+        # Obtener precios con información detallada (línea → conjunto → producto, país)
         query = """
             SELECT 
-                p.id, p.nombre, p.id_producto, p.id_pais, p.status, p.price_id,
-                prod.nombre, pais.nombre, pais.moneda
-            FROM precio p
-            LEFT JOIN producto prod ON p.id_producto = prod.id
-            LEFT JOIN pais pais ON p.id_pais = pais.id
-            LIMIT ? OFFSET ?
+                pr.id, pr.nombre, pr.id_linea, pr.id_pais, pr.price_id, 
+                pr.cantidad_precio, pr.ratio_imagen, pr.status,
+                l.id, p.nombre, p.cantidad,
+                c.nombre, 
+                pa.nombre, pa.moneda, pa.simbolo
+            FROM precio pr
+            LEFT JOIN linea l ON pr.id_linea = l.id
+            LEFT JOIN producto p ON l.id_producto = p.id
+            LEFT JOIN conjunto c ON l.id_conjunto = c.id
+            LEFT JOIN pais pa ON pr.id_pais = pa.id
+            LIMIT %s OFFSET %s
         """
         cursor.execute(query, (limit, skip))
         
@@ -251,13 +505,19 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
             precio = {
                 "id": row[0],
                 "nombre": row[1],
-                "id_producto": row[2],
+                "id_linea": row[2],
                 "id_pais": row[3],
-                "status": row[4],
-                "price_id": row[5],
-                "producto_nombre": row[6],
-                "pais_nombre": row[7],
-                "pais_moneda": row[8]
+                "price_id": row[4],
+                "cantidad_precio": row[5],
+                "ratio_imagen": row[6],
+                "status": row[7],
+                "linea_id": row[8],
+                "producto_nombre": row[9],
+                "producto_cantidad": row[10],
+                "conjunto_nombre": row[11],
+                "pais_nombre": row[12],
+                "pais_moneda": row[13],
+                "pais_simbolo": row[14]
             }
             precios.append(precio)
         
@@ -271,14 +531,14 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
             total=total
         )
     
-    except mariadb.Error as e:
+    except Error as e:
         raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @app.get("/precios/{precio_id}", response_model=GenericResponse)
 async def get_precio(precio_id: int):
-    """Obtener un precio específico por ID con información detallada"""
+    """Obtener un precio específico con información detallada"""
     try:
         conn = get_connection()
         if not conn:
@@ -287,12 +547,17 @@ async def get_precio(precio_id: int):
         cursor = conn.cursor()
         query = """
             SELECT 
-                p.id, p.nombre, p.id_producto, p.id_pais, p.status, p.price_id,
-                prod.nombre, pais.nombre, pais.moneda
-            FROM precio p
-            LEFT JOIN producto prod ON p.id_producto = prod.id
-            LEFT JOIN pais pais ON p.id_pais = pais.id
-            WHERE p.id = ?
+                pr.id, pr.nombre, pr.id_linea, pr.id_pais, pr.price_id, 
+                pr.cantidad_precio, pr.ratio_imagen, pr.status,
+                l.id, p.nombre, p.cantidad,
+                c.nombre, 
+                pa.nombre, pa.moneda, pa.simbolo
+            FROM precio pr
+            LEFT JOIN linea l ON pr.id_linea = l.id
+            LEFT JOIN producto p ON l.id_producto = p.id
+            LEFT JOIN conjunto c ON l.id_conjunto = c.id
+            LEFT JOIN pais pa ON pr.id_pais = pa.id
+            WHERE pr.id = %s
         """
         cursor.execute(query, (precio_id,))
         
@@ -306,13 +571,19 @@ async def get_precio(precio_id: int):
         precio = {
             "id": row[0],
             "nombre": row[1],
-            "id_producto": row[2],
+            "id_linea": row[2],
             "id_pais": row[3],
-            "status": row[4],
-            "price_id": row[5],
-            "producto_nombre": row[6],
-            "pais_nombre": row[7],
-            "pais_moneda": row[8]
+            "price_id": row[4],
+            "cantidad_precio": row[5],
+            "ratio_imagen": row[6],
+            "status": row[7],
+            "linea_id": row[8],
+            "producto_nombre": row[9],
+            "producto_cantidad": row[10],
+            "conjunto_nombre": row[11],
+            "pais_nombre": row[12],
+            "pais_moneda": row[13],
+            "pais_simbolo": row[14]
         }
         
         return GenericResponse(
@@ -326,9 +597,9 @@ async def get_precio(precio_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-@app.get("/precios/producto/{producto_id}", response_model=ListResponse)
-async def get_precios_by_producto(producto_id: int, skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100)):
-    """Obtener todos los precios de un producto específico"""
+@app.get("/precios/linea/{linea_id}", response_model=ListResponse)
+async def get_precios_by_linea(linea_id: int, skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100)):
+    """Obtener todos los precios de una línea específica en diferentes países"""
     try:
         conn = get_connection()
         if not conn:
@@ -336,35 +607,46 @@ async def get_precios_by_producto(producto_id: int, skip: int = Query(0, ge=0), 
         
         cursor = conn.cursor()
         
-        # Contar total de precios para este producto
-        cursor.execute("SELECT COUNT(*) FROM precio WHERE id_producto = ?", (producto_id,))
+        # Contar total de precios para esta línea
+        cursor.execute("SELECT COUNT(*) FROM precio WHERE id_linea = %s", (linea_id,))
         total = cursor.fetchone()[0]
         
         # Obtener precios
         query = """
             SELECT 
-                p.id, p.nombre, p.id_producto, p.id_pais, p.status, p.price_id,
-                prod.nombre, pais.nombre, pais.moneda
-            FROM precio p
-            LEFT JOIN producto prod ON p.id_producto = prod.id
-            LEFT JOIN pais pais ON p.id_pais = pais.id
-            WHERE p.id_producto = ?
-            LIMIT ? OFFSET ?
+                pr.id, pr.nombre, pr.id_linea, pr.id_pais, pr.price_id, 
+                pr.cantidad_precio, pr.ratio_imagen, pr.status,
+                l.id, p.nombre, p.cantidad,
+                c.nombre, 
+                pa.nombre, pa.moneda, pa.simbolo
+            FROM precio pr
+            LEFT JOIN linea l ON pr.id_linea = l.id
+            LEFT JOIN producto p ON l.id_producto = p.id
+            LEFT JOIN conjunto c ON l.id_conjunto = c.id
+            LEFT JOIN pais pa ON pr.id_pais = pa.id
+            WHERE pr.id_linea = %s
+            LIMIT %s OFFSET %s
         """
-        cursor.execute(query, (producto_id, limit, skip))
+        cursor.execute(query, (linea_id, limit, skip))
         
         precios = []
         for row in cursor.fetchall():
             precio = {
                 "id": row[0],
                 "nombre": row[1],
-                "id_producto": row[2],
+                "id_linea": row[2],
                 "id_pais": row[3],
-                "status": row[4],
-                "price_id": row[5],
-                "producto_nombre": row[6],
-                "pais_nombre": row[7],
-                "pais_moneda": row[8]
+                "price_id": row[4],
+                "cantidad_precio": row[5],
+                "ratio_imagen": row[6],
+                "status": row[7],
+                "linea_id": row[8],
+                "producto_nombre": row[9],
+                "producto_cantidad": row[10],
+                "conjunto_nombre": row[11],
+                "pais_nombre": row[12],
+                "pais_moneda": row[13],
+                "pais_simbolo": row[14]
             }
             precios.append(precio)
         
@@ -373,12 +655,12 @@ async def get_precios_by_producto(producto_id: int, skip: int = Query(0, ge=0), 
         
         return ListResponse(
             success=True,
-            message=f"Se obtuvieron {len(precios)} precios para el producto ID {producto_id}",
+            message=f"Se obtuvieron {len(precios)} precios para la línea ID {linea_id}",
             data=precios,
             total=total
         )
     
-    except mariadb.Error as e:
+    except Error as e:
         raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
@@ -394,19 +676,24 @@ async def get_precios_by_pais(pais_id: int, skip: int = Query(0, ge=0), limit: i
         cursor = conn.cursor()
         
         # Contar total de precios para este país
-        cursor.execute("SELECT COUNT(*) FROM precio WHERE id_pais = ?", (pais_id,))
+        cursor.execute("SELECT COUNT(*) FROM precio WHERE id_pais = %s", (pais_id,))
         total = cursor.fetchone()[0]
         
         # Obtener precios
         query = """
             SELECT 
-                p.id, p.nombre, p.id_producto, p.id_pais, p.status, p.price_id,
-                prod.nombre, pais.nombre, pais.moneda
-            FROM precio p
-            LEFT JOIN producto prod ON p.id_producto = prod.id
-            LEFT JOIN pais pais ON p.id_pais = pais.id
-            WHERE p.id_pais = ?
-            LIMIT ? OFFSET ?
+                pr.id, pr.nombre, pr.id_linea, pr.id_pais, pr.price_id, 
+                pr.cantidad_precio, pr.ratio_imagen, pr.status,
+                l.id, p.nombre, p.cantidad,
+                c.nombre, 
+                pa.nombre, pa.moneda, pa.simbolo
+            FROM precio pr
+            LEFT JOIN linea l ON pr.id_linea = l.id
+            LEFT JOIN producto p ON l.id_producto = p.id
+            LEFT JOIN conjunto c ON l.id_conjunto = c.id
+            LEFT JOIN pais pa ON pr.id_pais = pa.id
+            WHERE pr.id_pais = %s
+            LIMIT %s OFFSET %s
         """
         cursor.execute(query, (pais_id, limit, skip))
         
@@ -415,13 +702,19 @@ async def get_precios_by_pais(pais_id: int, skip: int = Query(0, ge=0), limit: i
             precio = {
                 "id": row[0],
                 "nombre": row[1],
-                "id_producto": row[2],
+                "id_linea": row[2],
                 "id_pais": row[3],
-                "status": row[4],
-                "price_id": row[5],
-                "producto_nombre": row[6],
-                "pais_nombre": row[7],
-                "pais_moneda": row[8]
+                "price_id": row[4],
+                "cantidad_precio": row[5],
+                "ratio_imagen": row[6],
+                "status": row[7],
+                "linea_id": row[8],
+                "producto_nombre": row[9],
+                "producto_cantidad": row[10],
+                "conjunto_nombre": row[11],
+                "pais_nombre": row[12],
+                "pais_moneda": row[13],
+                "pais_simbolo": row[14]
             }
             precios.append(precio)
         
@@ -435,7 +728,7 @@ async def get_precios_by_pais(pais_id: int, skip: int = Query(0, ge=0), limit: i
             total=total
         )
     
-    except mariadb.Error as e:
+    except Error as e:
         raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
