@@ -1,0 +1,35 @@
+name: Splashmix Producción 🚀
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy a producción
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Instalar claves SSH
+        run: |
+          install -m 600 -D /dev/null ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} > ~/.ssh/known_hosts
+      
+      - name: Conectar, actualizar y reiniciar con PM2
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+          "cd ${{ secrets.WORK_DIR }} && \
+          git pull origin main && \
+          source venv/bin/activate && \
+          pip install -r requirements.txt && \
+          python init_db.py && \
+          pm2 restart python-mariadb && \
+          sleep 2 && \
+          curl -s http://localhost:8000/health | grep -q 'healthy' && \
+          echo '✅ Deploy exitoso!' || echo '⚠️ Verifica el servidor'"
+      
+      - name: Limpiar SSH
+        run: rm -rf ~/.ssh
+        if: always()
+
