@@ -47,6 +47,7 @@ async def health_check():
         if conn:
             cursor = conn.cursor()
             cursor.execute("SELECT 1")
+            cursor.fetchone()  # Leer el resultado
             cursor.close()
             conn.close()
             return {"status": "healthy", "database": "connected"}
