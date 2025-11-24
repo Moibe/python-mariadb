@@ -43,7 +43,7 @@ class PaisCreate(PaisBase):
     pass
 
 class Pais(PaisBase):
-    id: int
+    id: str
     
     class Config:
         from_attributes = True
@@ -54,7 +54,7 @@ class ProductoBase(BaseModel):
     cantidad: int
     id_tipo_producto: int
     id_conjunto: int
-    precio_base: str
+    precio_base: int
 
 class ProductoCreate(ProductoBase):
     pass
@@ -69,7 +69,7 @@ class ProductoDetallado(BaseModel):
     id: int
     nombre: str
     cantidad: int
-    precio_base: str
+    precio_base: int
     id_tipo_producto: int
     id_conjunto: int
     tipo_producto_nombre: str
@@ -109,7 +109,7 @@ class PertenenciaDetallada(BaseModel):
 # ============ MODELOS TEXTOS ============
 class TextosBase(BaseModel):
     id_tipo_producto: int
-    id_pais: int
+    id_pais: str
     unidad: str
     unidades: str
 
@@ -125,7 +125,7 @@ class Textos(TextosBase):
 class TextosDetallado(BaseModel):
     id: int
     id_tipo_producto: int
-    id_pais: int
+    id_pais: str
     unidad: str
     unidades: str
     tipo_producto_nombre: str
@@ -138,11 +138,12 @@ class TextosDetallado(BaseModel):
 class PrecioBase(BaseModel):
     nombre: str
     id_pertenencia: int
-    id_pais: int
+    id_pais: str
     price_id: str
     cantidad_precio: int
     ratio_imagen: int
     status: str
+    ambiente: Optional[str] = None
 
 class PrecioCreate(PrecioBase):
     pass
@@ -157,11 +158,12 @@ class PrecioDetallado(BaseModel):
     id: int
     nombre: str
     id_pertenencia: int
-    id_pais: int
+    id_pais: str
     price_id: str
     cantidad_precio: int
     ratio_imagen: int
     status: str
+    ambiente: Optional[str] = None
     pertenencia_id: int
     producto_nombre: str
     producto_cantidad: int

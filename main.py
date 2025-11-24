@@ -236,7 +236,7 @@ async def get_paises(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @app.get("/paises/{pais_id}", response_model=GenericResponse)
-async def get_pais(pais_id: int):
+async def get_pais(pais_id: str):
     """Obtener un país específico"""
     try:
         conn = get_connection()
@@ -611,7 +611,7 @@ async def get_texto(texto_id: int):
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 @app.get("/textos/tipo-pais/{tipo_id}/{pais_id}", response_model=GenericResponse)
-async def get_texto_by_tipo_pais(tipo_id: int, pais_id: int):
+async def get_texto_by_tipo_pais(tipo_id: int, pais_id: str):
     """Obtener textos para un tipo de producto y país específicos"""
     try:
         conn = get_connection()
@@ -670,7 +670,7 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
         query = """
             SELECT 
                 pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
-                pr.cantidad_precio, pr.ratio_imagen, pr.status,
+                pr.cantidad_precio, pr.ratio_imagen, pr.status, pr.ambiente,
                 pe.id, p.nombre, p.cantidad,
                 tp.nombre,
                 c.nombre,
@@ -689,11 +689,11 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
         for row in cursor.fetchall():
             precio = {
                 "id": row[0], "nombre": row[1], "id_pertenencia": row[2], "id_pais": row[3],
-                "price_id": row[4], "cantidad_precio": row[5], "ratio_imagen": row[6], "status": row[7],
-                "pertenencia_id": row[8], "producto_nombre": row[9], "producto_cantidad": row[10],
-                "tipo_producto_nombre": row[11], "conjunto_nombre": row[12],
-                "pais_nombre": row[13], "pais_moneda": row[14], "pais_simbolo": row[15],
-                "pais_side": row[16], "pais_decs": row[17]
+                "price_id": row[4], "cantidad_precio": row[5], "ratio_imagen": row[6], "status": row[7], "ambiente": row[8],
+                "pertenencia_id": row[9], "producto_nombre": row[10], "producto_cantidad": row[11],
+                "tipo_producto_nombre": row[12], "conjunto_nombre": row[13],
+                "pais_nombre": row[14], "pais_moneda": row[15], "pais_simbolo": row[16],
+                "pais_side": row[17], "pais_decs": row[18]
             }
             precios.append(precio)
         
@@ -724,7 +724,7 @@ async def get_precio(precio_id: int):
         query = """
             SELECT 
                 pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
-                pr.cantidad_precio, pr.ratio_imagen, pr.status,
+                pr.cantidad_precio, pr.ratio_imagen, pr.status, pr.ambiente,
                 pe.id, p.nombre, p.cantidad,
                 tp.nombre,
                 c.nombre,
@@ -747,11 +747,11 @@ async def get_precio(precio_id: int):
         
         precio = {
             "id": row[0], "nombre": row[1], "id_pertenencia": row[2], "id_pais": row[3],
-            "price_id": row[4], "cantidad_precio": row[5], "ratio_imagen": row[6], "status": row[7],
-            "pertenencia_id": row[8], "producto_nombre": row[9], "producto_cantidad": row[10],
-            "tipo_producto_nombre": row[11], "conjunto_nombre": row[12],
-            "pais_nombre": row[13], "pais_moneda": row[14], "pais_simbolo": row[15],
-            "pais_side": row[16], "pais_decs": row[17]
+            "price_id": row[4], "cantidad_precio": row[5], "ratio_imagen": row[6], "status": row[7], "ambiente": row[8],
+            "pertenencia_id": row[9], "producto_nombre": row[10], "producto_cantidad": row[11],
+            "tipo_producto_nombre": row[12], "conjunto_nombre": row[13],
+            "pais_nombre": row[14], "pais_moneda": row[15], "pais_simbolo": row[16],
+            "pais_side": row[17], "pais_decs": row[18]
         }
         
         return GenericResponse(
@@ -780,7 +780,7 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
         query = """
             SELECT 
                 pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
-                pr.cantidad_precio, pr.ratio_imagen, pr.status,
+                pr.cantidad_precio, pr.ratio_imagen, pr.status, pr.ambiente,
                 pe.id, p.nombre, p.cantidad,
                 tp.nombre,
                 c.nombre,
@@ -800,11 +800,11 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
         for row in cursor.fetchall():
             precio = {
                 "id": row[0], "nombre": row[1], "id_pertenencia": row[2], "id_pais": row[3],
-                "price_id": row[4], "cantidad_precio": row[5], "ratio_imagen": row[6], "status": row[7],
-                "pertenencia_id": row[8], "producto_nombre": row[9], "producto_cantidad": row[10],
-                "tipo_producto_nombre": row[11], "conjunto_nombre": row[12],
-                "pais_nombre": row[13], "pais_moneda": row[14], "pais_simbolo": row[15],
-                "pais_side": row[16], "pais_decs": row[17]
+                "price_id": row[4], "cantidad_precio": row[5], "ratio_imagen": row[6], "status": row[7], "ambiente": row[8],
+                "pertenencia_id": row[9], "producto_nombre": row[10], "producto_cantidad": row[11],
+                "tipo_producto_nombre": row[12], "conjunto_nombre": row[13],
+                "pais_nombre": row[14], "pais_moneda": row[15], "pais_simbolo": row[16],
+                "pais_side": row[17], "pais_decs": row[18]
             }
             precios.append(precio)
         
@@ -824,7 +824,7 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @app.get("/precios/pais/{pais_id}", response_model=ListResponse)
-async def get_precios_by_pais(pais_id: int, skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100)):
+async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100)):
     """Obtener todos los precios para un país específico"""
     try:
         conn = get_connection()
@@ -838,7 +838,7 @@ async def get_precios_by_pais(pais_id: int, skip: int = Query(0, ge=0), limit: i
         query = """
             SELECT 
                 pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
-                pr.cantidad_precio, pr.ratio_imagen, pr.status,
+                pr.cantidad_precio, pr.ratio_imagen, pr.status, pr.ambiente,
                 pe.id, p.nombre, p.cantidad,
                 tp.nombre,
                 c.nombre,
@@ -858,11 +858,11 @@ async def get_precios_by_pais(pais_id: int, skip: int = Query(0, ge=0), limit: i
         for row in cursor.fetchall():
             precio = {
                 "id": row[0], "nombre": row[1], "id_pertenencia": row[2], "id_pais": row[3],
-                "price_id": row[4], "cantidad_precio": row[5], "ratio_imagen": row[6], "status": row[7],
-                "pertenencia_id": row[8], "producto_nombre": row[9], "producto_cantidad": row[10],
-                "tipo_producto_nombre": row[11], "conjunto_nombre": row[12],
-                "pais_nombre": row[13], "pais_moneda": row[14], "pais_simbolo": row[15],
-                "pais_side": row[16], "pais_decs": row[17]
+                "price_id": row[4], "cantidad_precio": row[5], "ratio_imagen": row[6], "status": row[7], "ambiente": row[8],
+                "pertenencia_id": row[9], "producto_nombre": row[10], "producto_cantidad": row[11],
+                "tipo_producto_nombre": row[12], "conjunto_nombre": row[13],
+                "pais_nombre": row[14], "pais_moneda": row[15], "pais_simbolo": row[16],
+                "pais_side": row[17], "pais_decs": row[18]
             }
             precios.append(precio)
         
