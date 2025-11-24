@@ -656,15 +656,21 @@ async def get_texto_by_tipo_pais(tipo_id: int, pais_id: str):
 # ============ ENDPOINTS PRECIO ============
 
 @app.get("/precios", response_model=ListResponse)
-async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100)):
-    """Obtener lista de precios con información completa"""
+async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(None), ambiente: str = Query(None)):
+    """Obtener lista de precios con información completa. Filtrar por ambiente opcional (sandbox/production)"""
     try:
         conn = get_connection()
         if not conn:
             raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
         
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM precio")
+        
+        count_query = "SELECT COUNT(*) FROM precio"
+        if ambiente:
+            count_query += " WHERE ambiente = %s"
+            cursor.execute(count_query, (ambiente,))
+        else:
+            cursor.execute(count_query)
         total = cursor.fetchone()[0]
         
         query = """
@@ -681,9 +687,24 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
             LEFT JOIN tipo_producto tp ON p.id_tipo_producto = tp.id
             LEFT JOIN conjunto c ON pe.id_conjunto = c.id
             LEFT JOIN pais pa ON pr.id_pais = pa.id
-            LIMIT %s OFFSET %s
         """
-        cursor.execute(query, (limit, skip))
+        
+        if ambiente:
+            query += " WHERE pr.ambiente = %s"
+        
+        query += " OFFSET %s"
+        
+        if limit is None:
+            if ambiente:
+                cursor.execute(query, (ambiente, skip))
+            else:
+                cursor.execute(query, (skip,))
+        else:
+            query = query.replace("OFFSET %s", "LIMIT %s OFFSET %s")
+            if ambiente:
+                cursor.execute(query, (ambiente, limit, skip))
+            else:
+                cursor.execute(query, (limit, skip))
         
         precios = []
         for row in cursor.fetchall():
@@ -766,15 +787,21 @@ async def get_precio(precio_id: int):
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 @app.get("/precios/pertenencia/{pertenencia_id}", response_model=ListResponse)
-async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100)):
-    """Obtener todos los precios de una pertenencia en diferentes países"""
+async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, ge=0), limit: int = Query(None), ambiente: str = Query(None)):
+    """Obtener todos los precios de una pertenencia en diferentes países. Filtrar por ambiente opcional (sandbox/production)"""
     try:
         conn = get_connection()
         if not conn:
             raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
         
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM precio WHERE id_pertenencia = %s", (pertenencia_id,))
+        
+        count_query = "SELECT COUNT(*) FROM precio WHERE id_pertenencia = %s"
+        if ambiente:
+            count_query += " AND ambiente = %s"
+            cursor.execute(count_query, (pertenencia_id, ambiente))
+        else:
+            cursor.execute(count_query, (pertenencia_id,))
         total = cursor.fetchone()[0]
         
         query = """
@@ -792,9 +819,24 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
             LEFT JOIN conjunto c ON pe.id_conjunto = c.id
             LEFT JOIN pais pa ON pr.id_pais = pa.id
             WHERE pr.id_pertenencia = %s
-            LIMIT %s OFFSET %s
         """
-        cursor.execute(query, (pertenencia_id, limit, skip))
+        
+        if ambiente:
+            query += " AND pr.ambiente = %s"
+        
+        query += " OFFSET %s"
+        
+        if limit is None:
+            if ambiente:
+                cursor.execute(query, (pertenencia_id, ambiente, skip))
+            else:
+                cursor.execute(query, (pertenencia_id, skip))
+        else:
+            query = query.replace("OFFSET %s", "LIMIT %s OFFSET %s")
+            if ambiente:
+                cursor.execute(query, (pertenencia_id, ambiente, limit, skip))
+            else:
+                cursor.execute(query, (pertenencia_id, limit, skip))
         
         precios = []
         for row in cursor.fetchall():
@@ -824,15 +866,21 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @app.get("/precios/pais/{pais_id}", response_model=ListResponse)
-async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100)):
-    """Obtener todos los precios para un país específico"""
+async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: int = Query(None), ambiente: str = Query(None)):
+    """Obtener todos los precios para un país específico. Filtrar por ambiente opcional (sandbox/production)"""
     try:
         conn = get_connection()
         if not conn:
             raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
         
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM precio WHERE id_pais = %s", (pais_id,))
+        
+        count_query = "SELECT COUNT(*) FROM precio WHERE id_pais = %s"
+        if ambiente:
+            count_query += " AND ambiente = %s"
+            cursor.execute(count_query, (pais_id, ambiente))
+        else:
+            cursor.execute(count_query, (pais_id,))
         total = cursor.fetchone()[0]
         
         query = """
@@ -850,9 +898,24 @@ async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: i
             LEFT JOIN conjunto c ON pe.id_conjunto = c.id
             LEFT JOIN pais pa ON pr.id_pais = pa.id
             WHERE pr.id_pais = %s
-            LIMIT %s OFFSET %s
         """
-        cursor.execute(query, (pais_id, limit, skip))
+        
+        if ambiente:
+            query += " AND pr.ambiente = %s"
+        
+        query += " OFFSET %s"
+        
+        if limit is None:
+            if ambiente:
+                cursor.execute(query, (pais_id, ambiente, skip))
+            else:
+                cursor.execute(query, (pais_id, skip))
+        else:
+            query = query.replace("OFFSET %s", "LIMIT %s OFFSET %s")
+            if ambiente:
+                cursor.execute(query, (pais_id, ambiente, limit, skip))
+            else:
+                cursor.execute(query, (pais_id, limit, skip))
         
         precios = []
         for row in cursor.fetchall():
