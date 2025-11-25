@@ -656,7 +656,7 @@ async def get_texto_by_tipo_pais(tipo_id: int, pais_id: str):
 # ============ ENDPOINTS PRECIO ============
 
 @app.get("/precios", response_model=ListResponse)
-async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(None), ambiente: str = Query(None)):
+async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100), ambiente: str = Query(None)):
     """Obtener lista de precios con información completa. Filtrar por ambiente opcional (sandbox/production)"""
     try:
         conn = get_connection()
@@ -673,37 +673,43 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(None), ambi
             cursor.execute(count_query)
         total = cursor.fetchone()[0]
         
-        query = """
-            SELECT 
-                pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
-                pr.cantidad_precio, pr.ratio_imagen, pr.status, pr.ambiente,
-                pe.id, p.nombre, p.cantidad,
-                tp.nombre,
-                c.nombre,
-                pa.nombre, pa.moneda, pa.simbolo, pa.side, pa.decs
-            FROM precio pr
-            LEFT JOIN pertenencia pe ON pr.id_pertenencia = pe.id
-            LEFT JOIN producto p ON pe.id_producto = p.id
-            LEFT JOIN tipo_producto tp ON p.id_tipo_producto = tp.id
-            LEFT JOIN conjunto c ON pe.id_conjunto = c.id
-            LEFT JOIN pais pa ON pr.id_pais = pa.id
-        """
-        
         if ambiente:
-            query += " WHERE pr.ambiente = %s"
-        
-        if limit is None:
-            query += " OFFSET %s"
-            if ambiente:
-                cursor.execute(query, (ambiente, skip))
-            else:
-                cursor.execute(query, (skip,))
+            query = """
+                SELECT 
+                    pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
+                    pr.cantidad_precio, pr.ratio_imagen, pr.status, pr.ambiente,
+                    pe.id, p.nombre, p.cantidad,
+                    tp.nombre,
+                    c.nombre,
+                    pa.nombre, pa.moneda, pa.simbolo, pa.side, pa.decs
+                FROM precio pr
+                LEFT JOIN pertenencia pe ON pr.id_pertenencia = pe.id
+                LEFT JOIN producto p ON pe.id_producto = p.id
+                LEFT JOIN tipo_producto tp ON p.id_tipo_producto = tp.id
+                LEFT JOIN conjunto c ON pe.id_conjunto = c.id
+                LEFT JOIN pais pa ON pr.id_pais = pa.id
+                WHERE pr.ambiente = %s
+                LIMIT %s OFFSET %s
+            """
+            cursor.execute(query, (ambiente, limit, skip))
         else:
-            query += " LIMIT %s OFFSET %s"
-            if ambiente:
-                cursor.execute(query, (ambiente, limit, skip))
-            else:
-                cursor.execute(query, (limit, skip))
+            query = """
+                SELECT 
+                    pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
+                    pr.cantidad_precio, pr.ratio_imagen, pr.status, pr.ambiente,
+                    pe.id, p.nombre, p.cantidad,
+                    tp.nombre,
+                    c.nombre,
+                    pa.nombre, pa.moneda, pa.simbolo, pa.side, pa.decs
+                FROM precio pr
+                LEFT JOIN pertenencia pe ON pr.id_pertenencia = pe.id
+                LEFT JOIN producto p ON pe.id_producto = p.id
+                LEFT JOIN tipo_producto tp ON p.id_tipo_producto = tp.id
+                LEFT JOIN conjunto c ON pe.id_conjunto = c.id
+                LEFT JOIN pais pa ON pr.id_pais = pa.id
+                LIMIT %s OFFSET %s
+            """
+            cursor.execute(query, (limit, skip))
         
         precios = []
         for row in cursor.fetchall():
@@ -786,7 +792,7 @@ async def get_precio(precio_id: int):
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 @app.get("/precios/pertenencia/{pertenencia_id}", response_model=ListResponse)
-async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, ge=0), limit: int = Query(None), ambiente: str = Query(None)):
+async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100), ambiente: str = Query(None)):
     """Obtener todos los precios de una pertenencia en diferentes países. Filtrar por ambiente opcional (sandbox/production)"""
     try:
         conn = get_connection()
@@ -803,38 +809,44 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
             cursor.execute(count_query, (pertenencia_id,))
         total = cursor.fetchone()[0]
         
-        query = """
-            SELECT 
-                pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
-                pr.cantidad_precio, pr.ratio_imagen, pr.status, pr.ambiente,
-                pe.id, p.nombre, p.cantidad,
-                tp.nombre,
-                c.nombre,
-                pa.nombre, pa.moneda, pa.simbolo, pa.side, pa.decs
-            FROM precio pr
-            LEFT JOIN pertenencia pe ON pr.id_pertenencia = pe.id
-            LEFT JOIN producto p ON pe.id_producto = p.id
-            LEFT JOIN tipo_producto tp ON p.id_tipo_producto = tp.id
-            LEFT JOIN conjunto c ON pe.id_conjunto = c.id
-            LEFT JOIN pais pa ON pr.id_pais = pa.id
-            WHERE pr.id_pertenencia = %s
-        """
-        
         if ambiente:
-            query += " AND pr.ambiente = %s"
-        
-        if limit is None:
-            query += " OFFSET %s"
-            if ambiente:
-                cursor.execute(query, (pertenencia_id, ambiente, skip))
-            else:
-                cursor.execute(query, (pertenencia_id, skip))
+            query = """
+                SELECT 
+                    pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
+                    pr.cantidad_precio, pr.ratio_imagen, pr.status, pr.ambiente,
+                    pe.id, p.nombre, p.cantidad,
+                    tp.nombre,
+                    c.nombre,
+                    pa.nombre, pa.moneda, pa.simbolo, pa.side, pa.decs
+                FROM precio pr
+                LEFT JOIN pertenencia pe ON pr.id_pertenencia = pe.id
+                LEFT JOIN producto p ON pe.id_producto = p.id
+                LEFT JOIN tipo_producto tp ON p.id_tipo_producto = tp.id
+                LEFT JOIN conjunto c ON pe.id_conjunto = c.id
+                LEFT JOIN pais pa ON pr.id_pais = pa.id
+                WHERE pr.id_pertenencia = %s AND pr.ambiente = %s
+                LIMIT %s OFFSET %s
+            """
+            cursor.execute(query, (pertenencia_id, ambiente, limit, skip))
         else:
-            query += " LIMIT %s OFFSET %s"
-            if ambiente:
-                cursor.execute(query, (pertenencia_id, ambiente, limit, skip))
-            else:
-                cursor.execute(query, (pertenencia_id, limit, skip))
+            query = """
+                SELECT 
+                    pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
+                    pr.cantidad_precio, pr.ratio_imagen, pr.status, pr.ambiente,
+                    pe.id, p.nombre, p.cantidad,
+                    tp.nombre,
+                    c.nombre,
+                    pa.nombre, pa.moneda, pa.simbolo, pa.side, pa.decs
+                FROM precio pr
+                LEFT JOIN pertenencia pe ON pr.id_pertenencia = pe.id
+                LEFT JOIN producto p ON pe.id_producto = p.id
+                LEFT JOIN tipo_producto tp ON p.id_tipo_producto = tp.id
+                LEFT JOIN conjunto c ON pe.id_conjunto = c.id
+                LEFT JOIN pais pa ON pr.id_pais = pa.id
+                WHERE pr.id_pertenencia = %s
+                LIMIT %s OFFSET %s
+            """
+            cursor.execute(query, (pertenencia_id, limit, skip))
         
         precios = []
         for row in cursor.fetchall():
@@ -864,7 +876,7 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @app.get("/precios/pais/{pais_id}", response_model=ListResponse)
-async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: int = Query(None), ambiente: str = Query(None)):
+async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100), ambiente: str = Query(None)):
     """Obtener todos los precios para un país específico. Filtrar por ambiente opcional (sandbox/production)"""
     try:
         conn = get_connection()
@@ -881,38 +893,44 @@ async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: i
             cursor.execute(count_query, (pais_id,))
         total = cursor.fetchone()[0]
         
-        query = """
-            SELECT 
-                pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
-                pr.cantidad_precio, pr.ratio_imagen, pr.status, pr.ambiente,
-                pe.id, p.nombre, p.cantidad,
-                tp.nombre,
-                c.nombre,
-                pa.nombre, pa.moneda, pa.simbolo, pa.side, pa.decs
-            FROM precio pr
-            LEFT JOIN pertenencia pe ON pr.id_pertenencia = pe.id
-            LEFT JOIN producto p ON pe.id_producto = p.id
-            LEFT JOIN tipo_producto tp ON p.id_tipo_producto = tp.id
-            LEFT JOIN conjunto c ON pe.id_conjunto = c.id
-            LEFT JOIN pais pa ON pr.id_pais = pa.id
-            WHERE pr.id_pais = %s
-        """
-        
         if ambiente:
-            query += " AND pr.ambiente = %s"
-        
-        if limit is None:
-            query += " OFFSET %s"
-            if ambiente:
-                cursor.execute(query, (pais_id, ambiente, skip))
-            else:
-                cursor.execute(query, (pais_id, skip))
+            query = """
+                SELECT 
+                    pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
+                    pr.cantidad_precio, pr.ratio_imagen, pr.status, pr.ambiente,
+                    pe.id, p.nombre, p.cantidad,
+                    tp.nombre,
+                    c.nombre,
+                    pa.nombre, pa.moneda, pa.simbolo, pa.side, pa.decs
+                FROM precio pr
+                LEFT JOIN pertenencia pe ON pr.id_pertenencia = pe.id
+                LEFT JOIN producto p ON pe.id_producto = p.id
+                LEFT JOIN tipo_producto tp ON p.id_tipo_producto = tp.id
+                LEFT JOIN conjunto c ON pe.id_conjunto = c.id
+                LEFT JOIN pais pa ON pr.id_pais = pa.id
+                WHERE pr.id_pais = %s AND pr.ambiente = %s
+                LIMIT %s OFFSET %s
+            """
+            cursor.execute(query, (pais_id, ambiente, limit, skip))
         else:
-            query += " LIMIT %s OFFSET %s"
-            if ambiente:
-                cursor.execute(query, (pais_id, ambiente, limit, skip))
-            else:
-                cursor.execute(query, (pais_id, limit, skip))
+            query = """
+                SELECT 
+                    pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
+                    pr.cantidad_precio, pr.ratio_imagen, pr.status, pr.ambiente,
+                    pe.id, p.nombre, p.cantidad,
+                    tp.nombre,
+                    c.nombre,
+                    pa.nombre, pa.moneda, pa.simbolo, pa.side, pa.decs
+                FROM precio pr
+                LEFT JOIN pertenencia pe ON pr.id_pertenencia = pe.id
+                LEFT JOIN producto p ON pe.id_producto = p.id
+                LEFT JOIN tipo_producto tp ON p.id_tipo_producto = tp.id
+                LEFT JOIN conjunto c ON pe.id_conjunto = c.id
+                LEFT JOIN pais pa ON pr.id_pais = pa.id
+                WHERE pr.id_pais = %s
+                LIMIT %s OFFSET %s
+            """
+            cursor.execute(query, (pais_id, limit, skip))
         
         precios = []
         for row in cursor.fetchall():
