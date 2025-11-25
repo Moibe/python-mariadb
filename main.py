@@ -664,9 +664,18 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
             raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
         
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM precio")
+        
+        # Build count query with optional ambiente filter
+        count_query = "SELECT COUNT(*) FROM precio"
+        count_params = []
+        if ambiente:
+            count_query += " WHERE ambiente = %s"
+            count_params.append(ambiente)
+        
+        cursor.execute(count_query, count_params if count_params else ())
         total = cursor.fetchone()[0]
         
+        # Build main query with optional ambiente filter
         query = """
             SELECT 
                 pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
@@ -681,9 +690,17 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
             LEFT JOIN tipo_producto tp ON p.id_tipo_producto = tp.id
             LEFT JOIN conjunto c ON pe.id_conjunto = c.id
             LEFT JOIN pais pa ON pr.id_pais = pa.id
-            LIMIT %s OFFSET %s
         """
-        cursor.execute(query, (limit, skip))
+        
+        query_params = []
+        if ambiente:
+            query += " WHERE pr.ambiente = %s"
+            query_params.append(ambiente)
+        
+        query += " LIMIT %s OFFSET %s"
+        query_params.extend([limit, skip])
+        
+        cursor.execute(query, query_params)
         
         precios = []
         for row in cursor.fetchall():
@@ -695,9 +712,7 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
                 "pais_nombre": row[14], "pais_moneda": row[15], "pais_simbolo": row[16],
                 "pais_side": row[17], "pais_decs": row[18]
             }
-            # Filtrar por ambiente en Python si se especifica
-            if ambiente is None or precio["ambiente"] == ambiente:
-                precios.append(precio)
+            precios.append(precio)
         
         cursor.close()
         conn.close()
