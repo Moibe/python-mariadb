@@ -692,15 +692,14 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(None), ambi
         if ambiente:
             query += " WHERE pr.ambiente = %s"
         
-        query += " OFFSET %s"
-        
         if limit is None:
+            query += " OFFSET %s"
             if ambiente:
                 cursor.execute(query, (ambiente, skip))
             else:
                 cursor.execute(query, (skip,))
         else:
-            query = query.replace("OFFSET %s", "LIMIT %s OFFSET %s")
+            query += " LIMIT %s OFFSET %s"
             if ambiente:
                 cursor.execute(query, (ambiente, limit, skip))
             else:
@@ -824,15 +823,14 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
         if ambiente:
             query += " AND pr.ambiente = %s"
         
-        query += " OFFSET %s"
-        
         if limit is None:
+            query += " OFFSET %s"
             if ambiente:
                 cursor.execute(query, (pertenencia_id, ambiente, skip))
             else:
                 cursor.execute(query, (pertenencia_id, skip))
         else:
-            query = query.replace("OFFSET %s", "LIMIT %s OFFSET %s")
+            query += " LIMIT %s OFFSET %s"
             if ambiente:
                 cursor.execute(query, (pertenencia_id, ambiente, limit, skip))
             else:
@@ -903,15 +901,14 @@ async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: i
         if ambiente:
             query += " AND pr.ambiente = %s"
         
-        query += " OFFSET %s"
-        
         if limit is None:
+            query += " OFFSET %s"
             if ambiente:
                 cursor.execute(query, (pais_id, ambiente, skip))
             else:
                 cursor.execute(query, (pais_id, skip))
         else:
-            query = query.replace("OFFSET %s", "LIMIT %s OFFSET %s")
+            query += " LIMIT %s OFFSET %s"
             if ambiente:
                 cursor.execute(query, (pais_id, ambiente, limit, skip))
             else:
