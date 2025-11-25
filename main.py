@@ -664,15 +664,9 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
             raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
         
         cursor = conn.cursor()
-        
-        # Query de conteo
-        if ambiente:
-            cursor.execute("SELECT COUNT(*) FROM precio WHERE ambiente = %s", (ambiente,))
-        else:
-            cursor.execute("SELECT COUNT(*) FROM precio")
+        cursor.execute("SELECT COUNT(*) FROM precio")
         total = cursor.fetchone()[0]
         
-        # Query principal - SIEMPRE igual, solo cambiar los parámetros
         query = """
             SELECT 
                 pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
@@ -687,16 +681,9 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
             LEFT JOIN tipo_producto tp ON p.id_tipo_producto = tp.id
             LEFT JOIN conjunto c ON pe.id_conjunto = c.id
             LEFT JOIN pais pa ON pr.id_pais = pa.id
+            LIMIT %s OFFSET %s
         """
-        
-        # Construir condición WHERE si hay ambiente
-        if ambiente:
-            query += " WHERE pr.ambiente = %s"
-            query += " LIMIT %s OFFSET %s"
-            cursor.execute(query, (ambiente, limit, skip))
-        else:
-            query += " LIMIT %s OFFSET %s"
-            cursor.execute(query, (limit, skip))
+        cursor.execute(query, (limit, skip))
         
         precios = []
         for row in cursor.fetchall():
@@ -708,7 +695,9 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
                 "pais_nombre": row[14], "pais_moneda": row[15], "pais_simbolo": row[16],
                 "pais_side": row[17], "pais_decs": row[18]
             }
-            precios.append(precio)
+            # Filtrar por ambiente en Python si se especifica
+            if ambiente is None or precio["ambiente"] == ambiente:
+                precios.append(precio)
         
         cursor.close()
         conn.close()
