@@ -657,13 +657,27 @@ async def get_texto_by_tipo_pais(tipo_id: int, pais_id: str):
 
 @app.get("/precios", response_model=ListResponse)
 async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100), ambiente: str = Query(None), pais: str = Query(None)):
-    """Obtener lista de precios con información completa. Filtrar por ambiente (sandbox/production) y/o pais (ISO 3 letras) de forma opcional"""
+    """Obtener lista de precios. Filtrar por ambiente (sandbox/production) y/o pais (ISO 3 letras o 2 letras)"""
     try:
         conn = get_connection()
         if not conn:
             raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
         
         cursor = conn.cursor()
+        
+        # Convertir ISO alpha-2 a alpha-3 si es necesario
+        pais_filter = None
+        if pais:
+            pais_upper = pais.upper()
+            if len(pais_upper) == 2:
+                # Buscar el código alpha-3 usando el alpha-2
+                cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_upper,))
+                result = cursor.fetchone()
+                pais_filter = result[0] if result else None
+                if not pais_filter:
+                    raise HTTPException(status_code=404, detail=f"País con código ISO {pais_upper} no encontrado")
+            else:
+                pais_filter = pais_upper
         
         # Build count query with optional filters
         count_query = "SELECT COUNT(*) FROM precio pr"
@@ -673,9 +687,9 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
         if ambiente:
             where_clauses.append("pr.ambiente = %s")
             count_params.append(ambiente)
-        if pais:
+        if pais_filter:
             where_clauses.append("pr.id_pais = %s")
-            count_params.append(pais.upper())
+            count_params.append(pais_filter)
         
         if where_clauses:
             count_query += " WHERE " + " AND ".join(where_clauses)
@@ -706,9 +720,9 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
         if ambiente:
             query_where_clauses.append("pr.ambiente = %s")
             query_params.append(ambiente)
-        if pais:
+        if pais_filter:
             query_where_clauses.append("pr.id_pais = %s")
-            query_params.append(pais.upper())
+            query_params.append(pais_filter)
         
         if query_where_clauses:
             query += " WHERE " + " AND ".join(query_where_clauses)
@@ -740,6 +754,8 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
             total=total
         )
     
+    except HTTPException:
+        raise
     except Error as e:
         raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
     except Exception as e:
@@ -800,7 +816,7 @@ async def get_precio(precio_id: int):
 
 @app.get("/precios/pertenencia/{pertenencia_id}", response_model=ListResponse)
 async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100), ambiente: str = Query(None), pais: str = Query(None)):
-    """Obtener todos los precios de una pertenencia en diferentes países. Filtrar por ambiente (sandbox/production) y/o pais (ISO 3 letras) de forma opcional"""
+    """Obtener precios de una pertenencia. Filtrar por ambiente y/o pais (ISO 3 o 2 letras)"""
     try:
         conn = get_connection()
         if not conn:
@@ -808,15 +824,28 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
         
         cursor = conn.cursor()
         
+        # Convertir ISO alpha-2 a alpha-3 si es necesario
+        pais_filter = None
+        if pais:
+            pais_upper = pais.upper()
+            if len(pais_upper) == 2:
+                cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_upper,))
+                result = cursor.fetchone()
+                pais_filter = result[0] if result else None
+                if not pais_filter:
+                    raise HTTPException(status_code=404, detail=f"País con código ISO {pais_upper} no encontrado")
+            else:
+                pais_filter = pais_upper
+        
         count_query = "SELECT COUNT(*) FROM precio WHERE id_pertenencia = %s"
         count_params = [pertenencia_id]
         
         if ambiente:
             count_query += " AND ambiente = %s"
             count_params.append(ambiente)
-        if pais:
+        if pais_filter:
             count_query += " AND id_pais = %s"
-            count_params.append(pais.upper())
+            count_params.append(pais_filter)
         
         cursor.execute(count_query, count_params)
         total = cursor.fetchone()[0]
@@ -842,9 +871,9 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
         if ambiente:
             query += " AND pr.ambiente = %s"
             query_params.append(ambiente)
-        if pais:
+        if pais_filter:
             query += " AND pr.id_pais = %s"
-            query_params.append(pais.upper())
+            query_params.append(pais_filter)
         
         query += " LIMIT %s OFFSET %s"
         query_params.extend([limit, skip])
@@ -873,6 +902,8 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
             total=total
         )
     
+    except HTTPException:
+        raise
     except Error as e:
         raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
     except Exception as e:
@@ -880,17 +911,27 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
 
 @app.get("/precios/pais/{pais_id}", response_model=ListResponse)
 async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100), ambiente: str = Query(None)):
-    """Obtener todos los precios para un país específico (ISO 3 letras). Filtrar por ambiente (sandbox/production) de forma opcional"""
+    """Obtener precios de un país. Acepta ISO 3 letras o 2 letras. Filtrar por ambiente opcional"""
     try:
         conn = get_connection()
         if not conn:
             raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
         
         cursor = conn.cursor()
+        
+        # Convertir ISO alpha-2 a alpha-3 si es necesario
         pais_id_upper = pais_id.upper()
+        if len(pais_id_upper) == 2:
+            cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_id_upper,))
+            result = cursor.fetchone()
+            pais_filter = result[0] if result else None
+            if not pais_filter:
+                raise HTTPException(status_code=404, detail=f"País con código ISO {pais_id_upper} no encontrado")
+        else:
+            pais_filter = pais_id_upper
         
         count_query = "SELECT COUNT(*) FROM precio WHERE id_pais = %s"
-        count_params = [pais_id_upper]
+        count_params = [pais_filter]
         
         if ambiente:
             count_query += " AND ambiente = %s"
@@ -915,7 +956,7 @@ async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: i
             LEFT JOIN pais pa ON pr.id_pais = pa.id
             WHERE pr.id_pais = %s
         """
-        query_params = [pais_id_upper]
+        query_params = [pais_filter]
         
         if ambiente:
             query += " AND pr.ambiente = %s"
@@ -948,6 +989,8 @@ async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: i
             total=total
         )
     
+    except HTTPException:
+        raise
     except Error as e:
         raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
     except Exception as e:
