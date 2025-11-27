@@ -657,7 +657,7 @@ async def get_texto_by_tipo_pais(tipo_id: int, pais_id: str):
 
 @app.get("/precios", response_model=ListResponse)
 async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100), ambiente: str = Query(None), pais: str = Query(None)):
-    """Obtener lista de precios. Filtrar por ambiente (sandbox/production) y/o pais (ISO 3 letras o 2 letras)"""
+    """Obtener lista de precios. Filtrar por ambiente (sandbox/production) y/o pais (ISO 2 letras: MX, CL, etc)"""
     try:
         conn = get_connection()
         if not conn:
@@ -665,41 +665,34 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
         
         cursor = conn.cursor()
         
-        # Convertir ISO alpha-2 a alpha-3 si es necesario
-        pais_filter = None
+        # Convertir ISO alpha-2 (MX) a moneda (MXN)
+        pais_moneda = None
         if pais:
             pais_upper = pais.upper()
-            if len(pais_upper) == 2:
-                # Buscar el código alpha-3 usando el alpha-2
-                search_cursor = conn.cursor()
-                search_cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_upper,))
-                result = search_cursor.fetchone()
-                search_cursor.close()
-                pais_filter = result[0] if result else None
-                if not pais_filter:
-                    raise HTTPException(status_code=404, detail=f"País con código ISO {pais_upper} no encontrado")
-            else:
-                pais_filter = pais_upper
+            # Buscar la moneda usando iso_alpha2
+            cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_upper,))
+            row = cursor.fetchone()
+            if not row:
+                cursor.close()
+                conn.close()
+                raise HTTPException(status_code=404, detail=f"País {pais_upper} no encontrado")
+            pais_moneda = row[0]
         
-        # Build count query with optional filters
-        count_query = "SELECT COUNT(*) FROM precio pr"
+        # Build count query
+        count_query = "SELECT COUNT(*) FROM precio WHERE 1=1"
         count_params = []
-        where_clauses = []
         
         if ambiente:
-            where_clauses.append("pr.ambiente = %s")
+            count_query += " AND ambiente = %s"
             count_params.append(ambiente)
-        if pais_filter:
-            where_clauses.append("pr.id_pais = %s")
-            count_params.append(pais_filter)
+        if pais_moneda:
+            count_query += " AND id_pais = %s"
+            count_params.append(pais_moneda)
         
-        if where_clauses:
-            count_query += " WHERE " + " AND ".join(where_clauses)
-        
-        cursor.execute(count_query, count_params if count_params else ())
+        cursor.execute(count_query, count_params)
         total = cursor.fetchone()[0]
         
-        # Build main query with optional filters
+        # Build main query
         query = """
             SELECT 
                 pr.id, pr.nombre, pr.id_pertenencia, pr.id_pais, pr.price_id,
@@ -714,20 +707,16 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
             LEFT JOIN tipo_producto tp ON p.id_tipo_producto = tp.id
             LEFT JOIN conjunto c ON pe.id_conjunto = c.id
             LEFT JOIN pais pa ON pr.id_pais = pa.id
+            WHERE 1=1
         """
-        
         query_params = []
-        query_where_clauses = []
         
         if ambiente:
-            query_where_clauses.append("pr.ambiente = %s")
+            query += " AND pr.ambiente = %s"
             query_params.append(ambiente)
-        if pais_filter:
-            query_where_clauses.append("pr.id_pais = %s")
-            query_params.append(pais_filter)
-        
-        if query_where_clauses:
-            query += " WHERE " + " AND ".join(query_where_clauses)
+        if pais_moneda:
+            query += " AND pr.id_pais = %s"
+            query_params.append(pais_moneda)
         
         query += " LIMIT %s OFFSET %s"
         query_params.extend([limit, skip])
@@ -826,20 +815,17 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
         
         cursor = conn.cursor()
         
-        # Convertir ISO alpha-2 a alpha-3 si es necesario
-        pais_filter = None
+        # Convertir ISO alpha-2 (MX) a moneda (MXN)
+        pais_moneda = None
         if pais:
             pais_upper = pais.upper()
-            if len(pais_upper) == 2:
-                search_cursor = conn.cursor()
-                search_cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_upper,))
-                result = search_cursor.fetchone()
-                search_cursor.close()
-                pais_filter = result[0] if result else None
-                if not pais_filter:
-                    raise HTTPException(status_code=404, detail=f"País con código ISO {pais_upper} no encontrado")
-            else:
-                pais_filter = pais_upper
+            cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_upper,))
+            row = cursor.fetchone()
+            if not row:
+                cursor.close()
+                conn.close()
+                raise HTTPException(status_code=404, detail=f"País {pais_upper} no encontrado")
+            pais_moneda = row[0]
         
         count_query = "SELECT COUNT(*) FROM precio WHERE id_pertenencia = %s"
         count_params = [pertenencia_id]
@@ -847,9 +833,9 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
         if ambiente:
             count_query += " AND ambiente = %s"
             count_params.append(ambiente)
-        if pais_filter:
+        if pais_moneda:
             count_query += " AND id_pais = %s"
-            count_params.append(pais_filter)
+            count_params.append(pais_moneda)
         
         cursor.execute(count_query, count_params)
         total = cursor.fetchone()[0]
@@ -875,9 +861,9 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
         if ambiente:
             query += " AND pr.ambiente = %s"
             query_params.append(ambiente)
-        if pais_filter:
+        if pais_moneda:
             query += " AND pr.id_pais = %s"
-            query_params.append(pais_filter)
+            query_params.append(pais_moneda)
         
         query += " LIMIT %s OFFSET %s"
         query_params.extend([limit, skip])
@@ -923,18 +909,15 @@ async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: i
         
         cursor = conn.cursor()
         
-        # Convertir ISO alpha-2 a alpha-3 si es necesario
+        # Convertir ISO alpha-2 (MX) a moneda (MXN)
         pais_id_upper = pais_id.upper()
-        if len(pais_id_upper) == 2:
-            search_cursor = conn.cursor()
-            search_cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_id_upper,))
-            result = search_cursor.fetchone()
-            search_cursor.close()
-            pais_filter = result[0] if result else None
-            if not pais_filter:
-                raise HTTPException(status_code=404, detail=f"País con código ISO {pais_id_upper} no encontrado")
-        else:
-            pais_filter = pais_id_upper
+        cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_id_upper,))
+        result = cursor.fetchone()
+        if not result:
+            cursor.close()
+            conn.close()
+            raise HTTPException(status_code=404, detail=f"País {pais_id_upper} no encontrado")
+        pais_filter = result[0]
         
         count_query = "SELECT COUNT(*) FROM precio WHERE id_pais = %s"
         count_params = [pais_filter]
