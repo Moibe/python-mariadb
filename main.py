@@ -671,8 +671,10 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
             pais_upper = pais.upper()
             if len(pais_upper) == 2:
                 # Buscar el código alpha-3 usando el alpha-2
-                cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_upper,))
-                result = cursor.fetchone()
+                search_cursor = conn.cursor()
+                search_cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_upper,))
+                result = search_cursor.fetchone()
+                search_cursor.close()
                 pais_filter = result[0] if result else None
                 if not pais_filter:
                     raise HTTPException(status_code=404, detail=f"País con código ISO {pais_upper} no encontrado")
@@ -829,8 +831,10 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
         if pais:
             pais_upper = pais.upper()
             if len(pais_upper) == 2:
-                cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_upper,))
-                result = cursor.fetchone()
+                search_cursor = conn.cursor()
+                search_cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_upper,))
+                result = search_cursor.fetchone()
+                search_cursor.close()
                 pais_filter = result[0] if result else None
                 if not pais_filter:
                     raise HTTPException(status_code=404, detail=f"País con código ISO {pais_upper} no encontrado")
@@ -922,8 +926,10 @@ async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: i
         # Convertir ISO alpha-2 a alpha-3 si es necesario
         pais_id_upper = pais_id.upper()
         if len(pais_id_upper) == 2:
-            cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_id_upper,))
-            result = cursor.fetchone()
+            search_cursor = conn.cursor()
+            search_cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_id_upper,))
+            result = search_cursor.fetchone()
+            search_cursor.close()
             pais_filter = result[0] if result else None
             if not pais_filter:
                 raise HTTPException(status_code=404, detail=f"País con código ISO {pais_id_upper} no encontrado")
