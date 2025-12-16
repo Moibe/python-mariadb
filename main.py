@@ -740,6 +740,7 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
                 "pais_nombre": row[14], "pais_moneda": row[15], "pais_simbolo": row[16],
                 "pais_side": row[17], "pais_decs": row[18]
             }
+            logger.debug(f"Precio /precios - id={precio['id']}, id_pais={precio['id_pais']}, conjunto={precio['conjunto_nombre']}, producto={precio['producto_nombre']}, ambiente={precio['ambiente']}")
             precios.append(precio)
         
         cursor.close()
@@ -889,6 +890,7 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
                 "pais_nombre": row[14], "pais_moneda": row[15], "pais_simbolo": row[16],
                 "pais_side": row[17], "pais_decs": row[18]
             }
+            logger.debug(f"Precio /pertenencia - id={precio['id']}, id_pais={precio['id_pais']}, conjunto={precio['conjunto_nombre']}, producto={precio['producto_nombre']}, ambiente={precio['ambiente']}")
             precios.append(precio)
         
         cursor.close()
@@ -977,6 +979,7 @@ async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: i
                 "pais_nombre": row[14], "pais_moneda": row[15], "pais_simbolo": row[16],
                 "pais_side": row[17], "pais_decs": row[18]
             }
+            logger.debug(f"Precio /pais - id={precio['id']}, id_pais={precio['id_pais']}, conjunto={precio['conjunto_nombre']}, producto={precio['producto_nombre']}, ambiente={precio['ambiente']}")
             precios.append(precio)
         
         cursor.close()
