@@ -9,6 +9,11 @@ from models import (
 )
 from typing import List
 from mysql.connector import Error
+import logging
+
+# Configurar logging
+logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(message)s')
+logger = logging.getLogger(__name__)
 
 # Crear la aplicación FastAPI
 app = FastAPI(
@@ -669,7 +674,7 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
         pais_moneda = None
         if pais:
             pais_upper = pais.upper()
-            print(f"[DEBUG] Buscando pais con iso_alpha2={pais_upper}")
+            logger.debug(f"Buscando pais con iso_alpha2={pais_upper}")
             # Buscar la moneda usando iso_alpha2
             cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_upper,))
             row = cursor.fetchone()
@@ -678,7 +683,7 @@ async def get_precios(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, l
                 conn.close()
                 raise HTTPException(status_code=404, detail=f"País {pais_upper} no encontrado")
             pais_moneda = row[0]
-            print(f"[DEBUG] Resultado: pais_moneda={pais_moneda}")
+            logger.debug(f"Resultado: pais_moneda={pais_moneda}")
         
         # Build count query
         count_query = "SELECT COUNT(*) FROM precio WHERE 1=1"
@@ -821,7 +826,7 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
         pais_moneda = None
         if pais:
             pais_upper = pais.upper()
-            print(f"[DEBUG] Buscando pais con iso_alpha2={pais_upper}")
+            logger.debug(f"Buscando pais con iso_alpha2={pais_upper}")
             cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_upper,))
             row = cursor.fetchone()
             if not row:
@@ -829,7 +834,7 @@ async def get_precios_by_pertenencia(pertenencia_id: int, skip: int = Query(0, g
                 conn.close()
                 raise HTTPException(status_code=404, detail=f"País {pais_upper} no encontrado")
             pais_moneda = row[0]
-            print(f"[DEBUG] Resultado: pais_moneda={pais_moneda}")
+            logger.debug(f"Resultado: pais_moneda={pais_moneda}")
         
         count_query = "SELECT COUNT(*) FROM precio WHERE id_pertenencia = %s"
         count_params = [pertenencia_id]
@@ -915,7 +920,7 @@ async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: i
         
         # Convertir ISO alpha-2 (MX) a moneda (MXN)
         pais_id_upper = pais_id.upper()
-        print(f"[DEBUG] Buscando pais con iso_alpha2={pais_id_upper}")
+        logger.debug(f"Buscando pais con iso_alpha2={pais_id_upper}")
         cursor.execute("SELECT id FROM pais WHERE iso_alpha2 = %s", (pais_id_upper,))
         result = cursor.fetchone()
         if not result:
@@ -923,7 +928,7 @@ async def get_precios_by_pais(pais_id: str, skip: int = Query(0, ge=0), limit: i
             conn.close()
             raise HTTPException(status_code=404, detail=f"País {pais_id_upper} no encontrado")
         pais_filter = result[0]
-        print(f"[DEBUG] Resultado: pais_filter={pais_filter}")
+        logger.debug(f"Resultado: pais_filter={pais_filter}")
         
         count_query = "SELECT COUNT(*) FROM precio WHERE id_pais = %s"
         count_params = [pais_filter]
