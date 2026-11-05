@@ -20,7 +20,7 @@ jobs:
         run: |
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
           "cd ${{ secrets.WORK_DIR }} && \
-          git pull origin main && \
+          git fetch origin main && git reset --keep FETCH_HEAD && \
           source venv/bin/activate && \
           pip install -r requirements.txt && \
           python init_db.py && \
